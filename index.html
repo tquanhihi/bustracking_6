@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>SSB 1.0 - Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css">
+  <!-- Leaflet CSS for map rendering -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+</head> 
+<body>
+  <div class="sidebar" id="left-sidebar">
+    <h2>SSB 1.0</h2>
+    <ul id="main-nav">
+      <!-- Quản lý -->
+  <!-- === QUẢN LÝ === -->          
+  <li class="manager-only" data-page="m-drivers">👨‍✈️ <span>Quản lý Tài xế</span></li> 
+  <li class="manager-only" data-page="m-parents">👨‍👩‍👧 <span>Quản lý Phụ huynh</span></li>
+  <li class="manager-only" data-page="m-dashboard">📊 <span>Tổng quan hệ thống</span></li>
+  <li class="manager-only" data-page="m-schedules">🗓️ <span>Lịch trình xe</span></li>
+  <li class="manager-only" data-page="m-routes">🧭 <span>Tuyến đường</span></li>
+  <li class="manager-only" data-page="m-buses">🚌 <span>Quản lý Xe buýt</span></li>
+  <li class="manager-only" data-page="m-tracking">📍 <span>Theo dõi vị trí xe</span></li>
+  <li class="manager-only" data-page="m-messages">💬 <span>Tin nhn</span></li>
+
+  <!-- === TÀI XẾ === -->
+  <li class="driver-only" data-page="d-schedules">📅 <span>Lịch làm việc</span></li>
+  <li class="driver-only" data-page="d-users">👨‍🎓 <span>Danh sách học sinh</span></li>
+  <li class="driver-only" data-page="d-reports">✅ <span>Báo cáo đón / trả</span></li>
+  <li class="driver-only" data-page="d-messages">⚠️ <span>Cảnh báo sự cố</span></li>
+
+  <!-- === PHỤ HUYNH === -->
+  <li class="parent-only" data-page="p-tracking">🚌 <span>Theo dõi xe của con</span></li>
+  <li class="parent-only" data-page="p-messages">🔔 <span>Xe đến gần</span></li>
+  <li class="parent-only" data-page="p-reports">🚨 <span>Trễ chuyến</span></li>
+    </ul>
+    <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+  </div>
+
+  <div class="main-content" id="main-content-area">
+    <!-- Nội dung chính sẽ chứa toàn bộ views (dashboard, schedules, routes, users, tracking, messages, reports) -->
+    <!-- Copy giao diện từ bản demo vào đây -->
+    <div class="app" id="app">
+      <main class="main">
+        <div class="container">
+          <div class="mobile-top">
+            <button class="open-sb" id="open-sb">☰ Menu</button>
+            <div style="font-weight:700">SSB 1.0</div>
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button class="btn ghost" id="btn-simulate">Tắt mô phỏng</button>
+              <button class="btn" id="btn-export">Tải HTML</button>
+            </div>
+          </div>
+
+          <header class="top">
+            <h1 id="page-title">Tổng quan hệ thống</h1>
+            <div class="controls">
+              <div class="chip" id="role-indicator">Quản lý</div>
+              <div class="chip" id="time-indicator">Real-time</div>
+            </div>
+          </header>
+
+          <div class="grid">
+            <section> 
+              <div class="card" id="page-content">
+                <!-- Dashboard view -->
+                <div id="m-dashboard-view">
+                  <div style="display:flex;gap:12px;align-items:center">
+                    <div style="flex:1">
+                      <h3>Số liệu nhanh</h3>
+                      <div style="display:flex;gap:10px;margin-top:8px">
+                        <div style="flex:1;background:#f9fafb;padding:12px;border-radius:8px">
+                          <div class="muted">Tổng số xe</div>
+                          <div style="font-weight:700;font-size:20px" id="total-buses">0</div>
+                        </div>
+                        <div style="flex:1;background:#f9fafb;padding:12px;border-radius:8px">
+                          <div class="muted">Xe đang hoạt động</div>
+                          <div style="font-weight:700;font-size:20px" id="running-buses">0</div>
+                        </div>
+                        <div style="flex:1;background:#f9fafb;padding:12px;border-radius:8px">
+                          <div class="muted">Tin nhắn chờ</div>
+                          <div style="font-weight:700;font-size:20px" id="pending-msg">0</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="width:260px">
+                      <h3>Lọc nhanh</h3>
+                      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                        <select id="filter-route"><option value="all">-- Chọn tuyến --</option></select>
+                        <select id="filter-status"><option value="all">-- Trạng thái --</option><option value="running">Đang chạy</option><option value="stopped">Dừng</option></select>
+                        <button class="btn" id="btn-apply">Áp dụng</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- React/Leaflet map root will be rendered inside the Tracking view -->
+
+                  <!-- Load Leaflet JS (we will use plain Leaflet here, no React) -->
+                  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+                  <!-- Initialize a plain Leaflet map inside #tracking-map when requested -->
+                  <script>
+                    (function(){
+                      // Center near Saigon University (ĐH Sài Gòn) — demo coordinates
+                      const defaultCenter = [10.7633, 106.6820];
+                      let map = null;
+                      const busMarkers = new Map();
+                      const routeLayers = [];
+
+                      function createMap() {
+                        const container = document.getElementById('tracking-map');
+                        if (!container) return null;
+                        if (map) return map;
+                        map = L.map('tracking-map', { scrollWheelZoom: false }).setView(defaultCenter, 14);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        }).addTo(map);
+                        return map;
+                      }
+
+                      function ensureMapVisible() {
+                        const m = createMap();
+                        if (m) setTimeout(() => { try { m.invalidateSize(); } catch(e){} }, 120);
+                        return m;
+                      }
+
+                      function setBuses(buses) {
+                        const m = createMap();
+                        if (!m) return;
+                        buses.forEach(b => {
+                          const key = String(b.id);
+                          const lat = Number(b.lat);
+                          const lon = Number(b.lon);
+                          if (!lat || !lon) return;
+                          if (busMarkers.has(key)) {
+                            const mk = busMarkers.get(key);
+                            mk.setLatLng([lat, lon]);
+                            mk.setPopupContent(`<strong>${b.plate}</strong><br/>Tuyến: ${b.run}<br/>Tài xế: ${b.driver}<br/>Trạng thái: ${b.status}`);
+                          } else {
+                            const icon = L.divIcon({ className: 'bus-icon', html: '🚌', iconSize: [28,28], iconAnchor: [14,14] });
+                            const mk = L.marker([lat, lon], { icon }).addTo(m);
+                            mk.bindPopup(`<strong>${b.plate}</strong><br/>Tuyến: ${b.run}<br/>Tài xế: ${b.driver}<br/>Trạng thái: ${b.status}`);
+                            busMarkers.set(key, mk);
+                          }
+                        });
+                        // remove markers that are no longer present
+                        Array.from(busMarkers.keys()).forEach(k => {
+                          if (!buses.find(b => String(b.id) === k)) {
+                            const mk = busMarkers.get(k); if (mk) m.removeLayer(mk); busMarkers.delete(k);
+                          }
+                        });
+                      }
+
+                      function setRoutes(routes) {
+                        const m = createMap();
+                        if (!m) return;
+                        // clear existing
+                        routeLayers.forEach(l => { try { m.removeLayer(l); } catch(e){} });
+                        routeLayers.length = 0;
+                        routes.forEach(r => {
+                          if (!r.coords || !r.coords.length) return;
+                          const poly = L.polyline(r.coords, { color: r.color || '#3388ff', weight: 4, opacity: 0.8 }).addTo(m);
+                          routeLayers.push(poly);
+                          if (Array.isArray(r.stops)) {
+                            r.stops.forEach(s => {
+                              // support stops as [lat, lng] or {lat, lng} or {lat, lon, label}
+                              let latlng = null;
+                              if (Array.isArray(s)) latlng = s;
+                              else if (s && (s.lat !== undefined)) latlng = [s.lat, s.lng !== undefined ? s.lng : s.lon];
+                              if (!latlng) return;
+                              const stopMk = L.circleMarker(latlng, { radius:6, color:'#fff', fillColor:'#2b6cb0', fillOpacity:1 }).addTo(m);
+                              stopMk.bindPopup((s && s.label) ? s.label : 'Trạm');
+                              routeLayers.push(stopMk);
+                            });
+                          }
+                        });
+                      }
+
+                      // Expose API
+                      window.ensureTrackingMap = ensureMapVisible;
+                      window.trackingMap = {
+                        ensure: ensureMapVisible,
+                        setBuses,
+                        setRoutes
+                      };
+                    })();
+                  </script>
+                  <hr style="margin:16px 0" />
+
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                      <h3>Danh sách xe (mô phỏng)</h3>
+                      <div class="list" id="bus-list">
+                        <!-- buses here -->
+                      </div>
+                    </div>
+                    <aside style="width:360px">
+                      <div class="card map">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                          <div><strong>Map (placeholder)</strong><div class="muted" style="font-size:12px">Bản đồ tạm — tích hợp Google Maps/Mapbox khi backend sẵn sàng</div></div>
+                          <div class="chip" id="realtime-chip">{ realtime }</div>
+                        </div>
+                        <div id="map-items" style="overflow:auto;flex:1;padding-top:6px"></div>
+                      </div>
+
+                      <div style="margin-top:12px" class="card">
+                        <h3>Hoạt động gần đây</h3>
+                        <div class="muted" id="activity-log" style="max-height:120px;overflow:auto"></div>
+                      </div>
+                    </aside>
+                  </div>
+
+                </div>
+
+                <!-- Schedules -->
+                <div id="m-schedules-view" class="hidden">
+                  <h3>Lịch trình</h3>
+                  <div class="muted">Tạo lịch tuần/tháng, phân công tài xế & xe</div>
+                  <div style="margin-top:12px;display:flex;gap:8px;align-items:flex-start">
+                    <div style="flex:2">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                        <button class="btn ghost" id="period-prev">‹ Trước</button>
+                        <div id="period-display" style="font-weight:700">Tuần hiện tại</div>
+                        <button class="btn ghost" id="period-next">Sau ›</button>
+                        <!-- Period is fixed to week -->
+                        <button class="btn" id="sched-edit-toggle" style="margin-left:8px">Chỉnh sửa</button>
+                      </div>
+
+                      <table>
+                        <thead><tr><th>Tài xế</th><th>Tuyến/Chạy</th><th>Xe buýt</th><th>Ca</th></tr></thead>
+                        <tbody id="schedules-table">
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Routes -->
+                <div id="m-routes-view" class="hidden">
+                  <h3>Tuyến đường</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+                        <div class="muted">Danh sách Tuyến</div>
+                        <input id="search-route" placeholder="Tìm theo mã hoặc tên" style="max-width:220px" />
+                        <button class="btn" id="btn-add-route">Thêm Tuyến</button>
+                      </div>
+                      <table>
+                        <thead><tr><th>Mã tuyến</th><th>Tên tuyến</th><th>Mô tả</th><th>Thời gian (phút)</th><th>Hành động</th></tr></thead>
+                        <tbody id="routes-table"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Users -->
+                <div id="d-users-view" class="hidden">
+                  <h3>Học sinh / Tài xế</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                      <table>
+                        <thead><tr><th>Loại</th><th>Tên</th><th>Liên hệ</th><th>Hành động</th></tr></thead>
+                        <tbody id="users-table"></tbody>
+                      </table>
+                    </div>
+                    <div style="width:320px">
+                      <div class="card">
+                        <h3>Thêm tài xế</h3>
+                        <input id="driver-name" placeholder="Tên" />
+                        <input id="driver-phone" placeholder="SĐT" />
+                        <button class="btn" id="add-driver">Thêm</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tracking -->
+                <div id="m-tracking-view" class="hidden">
+                  <h3>Theo dõi thời gian thực</h3>
+                  <div class="muted">Bản đồ hiển thị vị trí — mô phỏng bằng dữ liệu giả</div>
+                  <div style="margin-top:12px; height:360px;" id="tracking-map" class="map"></div>
+                </div>
+
+                <!-- Messages -->
+                <div id="m-messages-view" class="hidden">
+                  <h3>Tin nhắn</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                      <div class="card">
+                        <div style="display:flex;gap:8px;align-items:center">
+                          <input id="msg-to" placeholder="Gửi tới (tài xế / phụ huynh)" />
+                          <button class="btn" id="send-msg">Gửi</button>
+                        </div>
+                        <textarea id="msg-body" placeholder="Nội dung tin nhắn" style="margin-top:8px"></textarea>
+                      </div>
+                    </div>
+                    <div style="width:320px">
+                      <div class="card">
+                        <h3>Hộp thư</h3>
+                        <div id="inbox" style="max-height:240px;overflow:auto"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Reports -->
+                <div id="d-reports-view" class="hidden">
+                  <h3>Báo cáo</h3>
+                  <div class="muted">Thống kê lịch sử, tần suất trễ, báo cáo sự cố</div>
+                  <div style="margin-top:10px">
+                    <table>
+                      <thead><tr><th>Ngày</th><th>Loại</th><th>Chi tiết</th></tr></thead>
+                      <tbody id="reports-table"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div id="m-parents-view" class="hidden">
+                  <h3>Quản lý Phụ huynh</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+                          <div class="muted">Danh sách phụ huynh</div>
+                          <input id="search-parent" placeholder="Tìm theo tên hoặc mã" style="max-width:180px" />
+                          <button class="btn" id="btn-add-parent">Thêm phụ huynh</button>
+                        </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Mã người dùng</th>
+                            <th>Họ và tên</th>
+                            <th>Tên học sinh</th>
+                            <th>SĐT</th>
+                            <th>CCCD</th>
+                            <th>Gmail</th>
+                            <th>Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody id="parents-table">
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div id="m-drivers-view" class="hidden">
+                  <h3>Quản lý Tài xế</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+                          <div class="muted">Danh sách Tài xế</div>
+                          <input id="search-driver" placeholder="Tìm theo tên hoặc mã" style="max-width:180px" />
+                          <button class="btn" id="btn-add-driver">Thêm Tài xế</button>
+                        </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Mã Tài xế</th>
+                            <th>Họ và tên</th>
+                            <th>SĐT</th>
+                            <th>Gmail</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody id="drivers-table">
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="m-buses-view" class="hidden">
+                  <h3>Quản lý Xe buýt</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+                        <div class="muted">Danh sách Xe buýt</div>
+                        <input id="search-bus" placeholder="Tìm theo mã hoặc biển số" style="max-width:180px" />
+                        <button class="btn" id="btn-add-bus">Thêm Xe buýt</button>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Mã xe</th>
+                            <th>Biển số</th>
+                            <th>Tuyến chạy</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody id="buses-table"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+            <aside id="quick-actions-sidebar"> <div class="card">
+                <h3>Quick actions</h3>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                  <button class="btn" id="action-assign">Phân công tài xế</button>
+                  <button class="btn ghost" id="action-create-sched">Tạo lịch mới</button>
+                  <button class="btn ghost" id="action-send-alert">Gửi cảnh báo</button>
+                </div>
+              </div>
+
+              <div style="margin-top:12px" class="card">
+                <h3>Thông tin nhanh</h3>
+                <div class="muted">Phiên bản UI: demo</div>
+                <div class="muted">Ngôn ngữ: <span id="ui-lang">Tiếng Việt</span></div>
+              </div>
+
+              <div style="margin-top:12px" class="card">
+                <h3>Gợi ý</h3>
+                <div class="muted">Frontend này dùng HTML/CSS/JS tĩnh. Backend sẽ cung cấp API cho realtime, auth và dữ liệu.</div>
+              </div>
+            </aside>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal Structure -->
+  <div id="form-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+      
+      <!-- Driver Form -->
+      <div id="driver-form-card" class="hidden">
+        <h3 id="driver-form-title">Thêm / Sửa Tài xế</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="dr-id" placeholder="Mã Tài xế (tự động)" disabled />
+          <input id="dr-name" placeholder="Họ và tên" />
+          <div class="input-error" id="dr-name-error"></div>
+          <input id="dr-phone" placeholder="SĐT" />
+          <div class="input-error" id="dr-phone-error"></div>
+          <input id="dr-email" placeholder="Gmail" />
+          <div class="input-error" id="dr-email-error"></div>
+          <select id="dr-status">
+            <option value="active">Đang làm việc</option>
+            <option value="inactive">Ngừng làm việc</option>
+          </select>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="dr-save">Lưu</button>
+            <button class="btn ghost" id="dr-cancel">Hủy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parent Form -->
+      <div id="parent-form-card" class="hidden">
+        <h3 id="parent-form-title">Thêm / Sửa Phụ huynh</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="pa-id" placeholder="Mã người dùng (tự động)" disabled />
+          <input id="pa-name" placeholder="Họ và tên" />
+          <div class="input-error" id="pa-name-error"></div>
+          <input id="pa-student-name" placeholder="Tên học sinh" />
+          <div class="input-error" id="pa-student-name-error"></div>
+          <input id="pa-phone" placeholder="SĐT" />
+          <div class="input-error" id="pa-phone-error"></div>
+          <input id="pa-cccd" placeholder="CCCD" />
+          <div class="input-error" id="pa-cccd-error"></div>
+          <input id="pa-email" placeholder="Gmail" />
+          <div class="input-error" id="pa-email-error"></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="pa-save">Lưu</button>
+            <button class="btn ghost" id="pa-cancel">Hủy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bus Form -->
+      <div id="bus-form-card" class="hidden">
+        <h3 id="bus-form-title">Thêm / Sửa Xe buýt</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="bus-id" placeholder="Mã xe (tự động)" disabled />
+          <input id="bus-plate" placeholder="Biển số xe" />
+          <div class="input-error" id="bus-plate-error"></div>
+          <input id="bus-run" placeholder="Tuyến chạy" />
+          <div class="input-error" id="bus-run-error"></div>
+          <select id="bus-status">
+            <option value="active">Hoạt động</option>
+            <option value="maintenance">Bảo trì</option>
+          </select>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="bus-save">Lưu</button>
+            <button class="btn ghost" id="bus-cancel">Hủy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Route Form -->
+      <div id="route-form-card" class="hidden">
+        <h3 id="route-form-title">Thêm / Sửa Tuyến</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="route-id" placeholder="Mã tuyến (tự động)" disabled />
+          <input id="route-name-input" placeholder="Tên tuyến" />
+          <div class="input-error" id="route-name-input-error"></div>
+          <textarea id="route-description" placeholder="Mô tả"></textarea>
+          <div class="input-error" id="route-description-error"></div>
+          <input id="route-duration" placeholder="Thời gian ước tính (phút)" />
+          <div class="input-error" id="route-duration-error"></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="route-save">Lưu</button>
+            <button class="btn ghost" id="route-cancel">Hủy</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
