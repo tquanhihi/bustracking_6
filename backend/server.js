@@ -194,6 +194,167 @@ app.delete('/api/parents/:id', async (req, res) => {
     }
 });
 
+// =========================================================
+//                  API CHO HỌC SINH (STUDENTS)
+// Cấu trúc bảng: student_id (PK AI), name, parent_id, created_at, pickup_stop_id, dropoff_stop_id
+// =========================================================
+
+// Lấy danh sách students
+app.get('/api/students', async (req, res) => {
+    try {
+        const sql = `
+            SELECT
+                student_id AS id,
+                name,
+                parent_id,
+                pickup_stop_id,
+                dropoff_stop_id,
+                created_at
+            FROM students
+        `;
+        const [rows] = await db.query(sql);
+        res.json(rows);
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách students:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+// Thêm student
+app.post('/api/students', async (req, res) => {
+    const { name, parent_id, pickup_stop_id, dropoff_stop_id } = req.body;
+    console.log('[POST /api/students] Payload:', req.body);
+    if (!name || !parent_id) return res.status(400).json({ message: 'Thiếu tên hoặc parent_id.' });
+    try {
+        const sql = 'INSERT INTO students (name, parent_id, pickup_stop_id, dropoff_stop_id, created_at) VALUES (?, ?, ?, ?, NOW())';
+        const [result] = await db.query(sql, [name, parent_id || null, pickup_stop_id || null, dropoff_stop_id || null]);
+        res.status(201).json({ id: result.insertId, message: 'Thêm học sinh thành công' });
+    } catch (err) {
+        console.error('Lỗi khi thêm student:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+// Cập nhật student
+app.put('/api/students/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, parent_id, pickup_stop_id, dropoff_stop_id } = req.body;
+    console.log('[PUT /api/students/:id] Payload:', req.body);
+    if (!name || !parent_id) return res.status(400).json({ message: 'Thiếu tên hoặc parent_id.' });
+    try {
+        const sql = 'UPDATE students SET name = ?, parent_id = ?, pickup_stop_id = ?, dropoff_stop_id = ? WHERE student_id = ?';
+        const [result] = await db.query(sql, [name, parent_id || null, pickup_stop_id || null, dropoff_stop_id || null, id]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Không tìm thấy học sinh để cập nhật.' });
+        res.json({ message: 'Cập nhật học sinh thành công' });
+    } catch (err) {
+        console.error('Lỗi khi cập nhật student:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+// Xóa student
+app.delete('/api/students/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const sql = 'DELETE FROM students WHERE student_id = ?';
+        const [result] = await db.query(sql, [id]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Không tìm thấy học sinh để xóa.' });
+        res.json({ message: 'Xóa học sinh thành công' });
+    } catch (err) {
+        console.error('Lỗi khi xóa student:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+
+// =========================================================
+//                  API CHO TRẠM DỪNG (STOPS)
+// Cấu trúc bảng: stop_id (PK, AI), route_id (FK), stop_name, latitude, longitude, sequence_order
+// =========================================================
+
+// Lấy danh sách stops
+app.get('/api/stops', async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                stop_id AS id,
+                route_id,
+                stop_name AS name,
+                latitude,
+                longitude,
+                sequence_order
+            FROM stops
+        `;
+        const [rows] = await db.query(sql);
+        res.json(rows);
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách stops:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+// Thêm stop
+app.post('/api/stops', async (req, res) => {
+    const { route_id, name, latitude, longitude, sequence_order } = req.body;
+    console.log('[POST /api/stops] Payload:', req.body);
+    
+    if (!route_id || !name || latitude === undefined || longitude === undefined || sequence_order === undefined) {
+        return res.status(400).json({ message: 'Thiếu thông tin cần thiết (route_id, name, latitude, longitude, sequence_order).' });
+    }
+    
+    try {
+        const sql = 'INSERT INTO stops (route_id, stop_name, latitude, longitude, sequence_order) VALUES (?, ?, ?, ?, ?)';
+        const [result] = await db.query(sql, [route_id, name, latitude, longitude, sequence_order]);
+        res.status(201).json({ id: result.insertId, message: 'Thêm trạm thành công' });
+    } catch (err) {
+        console.error('Lỗi khi thêm stop:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+// Cập nhật stop
+app.put('/api/stops/:id', async (req, res) => {
+    const { id } = req.params;
+    const { route_id, name, latitude, longitude, sequence_order } = req.body;
+    console.log('[PUT /api/stops/:id] Payload:', req.body);
+    
+    if (!route_id || !name || latitude === undefined || longitude === undefined || sequence_order === undefined) {
+        return res.status(400).json({ message: 'Thiếu thông tin cần thiết để cập nhật.' });
+    }
+    
+    try {
+        const sql = 'UPDATE stops SET route_id = ?, stop_name = ?, latitude = ?, longitude = ?, sequence_order = ? WHERE stop_id = ?';
+        const [result] = await db.query(sql, [route_id, name, latitude, longitude, sequence_order, id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy trạm để cập nhật.' });
+        }
+        
+        res.json({ message: 'Cập nhật trạm thành công' });
+    } catch (err) {
+        console.error('Lỗi khi cập nhật stop:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
+
+// Xóa stop
+app.delete('/api/stops/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const sql = 'DELETE FROM stops WHERE stop_id = ?';
+        const [result] = await db.query(sql, [id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy trạm để xóa.' });
+        }
+        
+        res.json({ message: 'Xóa trạm thành công' });
+    } catch (err) {
+        console.error('Lỗi khi xóa stop:', err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
 
 // =========================================================
 //                  KHỞI ĐỘNG SERVER
