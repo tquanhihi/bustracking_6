@@ -9,16 +9,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_BASE_URL = 'http://localhost:3000/api';
 
     // ===== Pages & titles =====
-    const pages = ['m-dashboard', 'm-schedules', 'm-routes', 'm-buses', 'm-tracking', 'm-messages', 'm-drivers', 'm-parents', 'd-schedules', 'd-users', 'd-reports', 'd-messages', 'p-tracking', 'p-messages', 'p-reports'];
+    const pages = ['m-dashboard', 'm-schedules', 'm-routes', 'm-buses', 'm-stops', 'm-students', 'm-tracking', 'm-messages', 'm-drivers', 'm-parents', 'd-schedules', 'd-users', 'd-reports', 'd-messages', 'p-tracking', 'p-messages', 'p-reports'];
     const titles = {
         'm-dashboard': 'Tổng quan hệ thống',
         'm-schedules': 'Lịch trình',
         'm-routes': 'Tuyến & Xe',
         'm-buses': 'Quản lý Xe buýt',
+        'm-stops': 'Quản lý Trạm dừng',
         'm-tracking': 'Theo dõi vị trí',
         'm-messages': 'Tin nhắn',
         'm-drivers': 'Quản lý tài xế',
         'm-parents': 'Quản lý phụ huynh',
+            'm-students': 'Quản lý Học sinh',
         'd-schedules': 'Lịch làm việc',
         'd-users': 'Học sinh / Tài xế',
         'd-messages': 'Tin nhắn',
@@ -53,18 +55,20 @@ document.addEventListener('DOMContentLoaded', () => {
         activities: [],
         parents: [], // Dữ liệu thực tế từ API
         drivers: [],  // Dữ liệu thực tế từ API
+        students: [], // Dữ liệu học sinh từ API
         busesManaged: [] // Dữ liệu xe buýt từ API
     };
     // thêm state cho routes quản lý
     state.routesManaged = [];
     state.schedules = [];
+    state.stopsManaged = [];
     let simRunning = true;
 
     // ===== Role config =====
     const roleConfig = {
         manager: {
             name: 'Quản lý',
-            pages: ['m-drivers', 'm-parents', 'm-dashboard', 'm-schedules', 'm-routes', 'm-buses', 'm-tracking', 'm-messages'],
+            pages: ['m-drivers', 'm-parents', 'm-students', 'm-dashboard', 'm-schedules', 'm-routes', 'm-buses', 'm-stops', 'm-tracking', 'm-messages'],
             default: 'm-dashboard'
         },
         driver: {
@@ -288,6 +292,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (p) openFormModal('parent', p);
             });
         });
+    }
+
+    // =========================================================
+    //                    STUDENT CRUD LOGIC
+    // =========================================================
+    async function handleDeleteStudent(id) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa Học sinh ID ${id} này không?`)) {
+            return;
+        }
+
+        const success = await deleteData('students', id);
+        if (success) {
+            await renderStudents(); // refresh
+        }
+    }
+
+    async function renderStudents(filter = '') {
+        const table = document.getElementById('students-table');
+        if (!table) return;
+
+        const studentsData = await fetchData('students');
+        if (!studentsData) {
+            table.innerHTML = '<tr><td colspan="6">Không thể tải dữ liệu học sinh.</td></tr>';
+            return;
+        }
+
+        state.students = studentsData;
+        let filtered = state.students;
+        if (filter) {
+            const f = filter.trim().toLowerCase();
+            filtered = state.students.filter(s =>
+                String(s.id).toLowerCase().includes(f) ||
+                (s.name && s.name.toLowerCase().includes(f))
+            );
+        }
+        table.innerHTML = '';
+        filtered.forEach(s => {
+            // resolve parent name and stops
+            const parent = state.parents.find(p => String(p.id) === String(s.parent_id)) || {};
+            const pickup = (state.stopsManaged.find(st => String(st.id) === String(s.pickup_stop_id)) || {}).name || (s.pickup_stop_id || 'N/A');
+            const dropoff = (state.stopsManaged.find(st => String(st.id) === String(s.dropoff_stop_id)) || {}).name || (s.dropoff_stop_id || 'N/A');
+            const row = table.insertRow();
+            row.innerHTML = `
+                <td>${s.id}</td>
+                <td>${s.name}</td>
+                <td>${parent.name || 'N/A'}</td>
+                <td>${pickup}</td>
+                <td>${dropoff}</td>
+                <td>
+                    <button class="btn-icon btn-edit" data-id="${s.id}">✏️</button>
+                    <button class="btn-icon btn-delete" data-id="${s.id}" data-type="student">🗑️</button>
+                </td>
+            `;
+            row.classList.add('clickable-row');
+            row.addEventListener('click', (e) => { if (e.target.closest('button')) return; openFormModal('student', s); });
+        });
+
+        table.querySelectorAll('.btn-delete[data-type="student"]').forEach(btn => btn.addEventListener('click', () => {
+            const id = btn.dataset.id; handleDeleteStudent(id);
+        }));
+        table.querySelectorAll('.btn-edit').forEach(btn => btn.addEventListener('click', () => {
+            const id = btn.dataset.id; const s = state.students.find(x => String(x.id) === String(id)); if (s) openFormModal('student', s);
+        }));
     }
 
     async function renderDrivers(filter = '') {
@@ -567,6 +634,60 @@ document.addEventListener('DOMContentLoaded', () => {
     // init schedule controls inside init()
 
     // =========================================================
+    //                    STOPS CRUD + RENDER
+    // =========================================================
+    async function renderStopsManaged(filter = '') {
+        const table = document.getElementById('stops-table');
+        if (!table) return;
+
+        const data = await fetchData('stops');
+        if (!data) { table.innerHTML = '<tr><td colspan="3">Không thể tải dữ liệu trạm dừng.</td></tr>'; return; }
+
+        state.stopsManaged = data;
+        let filtered = state.stopsManaged;
+        if (filter) {
+            const f = filter.trim().toLowerCase();
+            filtered = state.stopsManaged.filter(s =>
+                String(s.id).toLowerCase().includes(f) ||
+                (s.name && s.name.toLowerCase().includes(f))
+            );
+        }
+
+        table.innerHTML = '';
+        filtered.forEach(s => {
+            const row = table.insertRow();
+            row.innerHTML = `
+                <td>${s.name}</td>
+                <td>${s.id}</td>
+                <td>
+                    <button class="btn-icon btn-edit" data-id="${s.id}" data-type="stop">✏️</button>
+                    <button class="btn-icon btn-delete" data-id="${s.id}" data-type="stop">🗑️</button>
+                </td>
+            `;
+            row.classList.add('clickable-row');
+            row.addEventListener('click', (e) => { if (e.target.closest('button')) return; openFormModal('stop', s); });
+        });
+
+        table.querySelectorAll('.btn-delete[data-type="stop"]').forEach(btn => btn.addEventListener('click', () => {
+            const id = btn.dataset.id; if (!confirm(`Bạn có chắc chắn muốn xóa Trạm ID ${id}?`)) return; deleteData('stops', id).then(ok => { if (ok) renderStopsManaged(); });
+        }));
+        table.querySelectorAll('.btn-edit[data-type="stop"]').forEach(btn => btn.addEventListener('click', () => {
+            const id = btn.dataset.id; const s = state.stopsManaged.find(x => String(x.id) === String(id)); if (s) openFormModal('stop', s);
+        }));
+    }
+
+    async function handleDeleteStop(id) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa Trạm ID ${id} này không?`)) {
+            return;
+        }
+
+        const success = await deleteData('stops', id);
+        if (success) {
+            await renderStopsManaged(); // Tải lại bảng sau khi xóa thành công
+        }
+    }
+
+    // =========================================================
     //                    ROUTES CRUD + RENDER
     // =========================================================
     async function renderRoutesManaged(filter = '') {
@@ -620,18 +741,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!formModal) return;
         formModal.classList.remove('hidden');
         clearFormErrors();
+        // Hide all form cards first
+        const allFormCards = [
+            document.getElementById('driver-form-card'),
+            document.getElementById('parent-form-card'),
+            document.getElementById('student-form-card'),
+            document.getElementById('bus-form-card'),
+            document.getElementById('route-form-card'),
+            document.getElementById('stop-form-card')
+        ];
+        allFormCards.forEach(card => { if (card) card.classList.add('hidden'); });
+
         if (type === 'driver') {
             driverFormCard.classList.remove('hidden');
-            parentFormCard.classList.add('hidden');
             document.getElementById('driver-form-title').textContent = data ? 'Sửa Tài xế' : 'Thêm Tài xế';
             document.getElementById('dr-id').value = data?.id || '';
             document.getElementById('dr-name').value = data?.name || '';
             document.getElementById('dr-phone').value = data?.phone || '';
             document.getElementById('dr-email').value = data?.email || '';
             document.getElementById('dr-status').value = data?.status === 'inactive' ? 'inactive' : 'active';
-        } else {
+        } else if (type === 'parent') {
             parentFormCard.classList.remove('hidden');
-            driverFormCard.classList.add('hidden');
             document.getElementById('parent-form-title').textContent = data ? 'Sửa Phụ huynh' : 'Thêm Phụ huynh';
             document.getElementById('pa-id').value = data?.id || '';
             document.getElementById('pa-name').value = data?.name || '';
@@ -639,31 +769,68 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('pa-phone').value = data?.phone || '';
             document.getElementById('pa-cccd').value = data?.cccd || '';
             document.getElementById('pa-email').value = data?.email || '';
-        }
-        if (type === 'bus') {
-            // show bus form and hide others
+        } else if (type === 'student') {
+            const studentCard = document.getElementById('student-form-card');
+            if (!studentCard) return;
+            studentCard.classList.remove('hidden');
+            document.getElementById('student-form-title').textContent = data ? 'Sửa Học sinh' : 'Thêm Học sinh';
+            document.getElementById('st-id').value = data?.id || '';
+            document.getElementById('st-name').value = data?.name || '';
+
+            // populate parents dropdown
+            const psel = document.getElementById('st-parent-id');
+            if (psel) {
+                psel.innerHTML = '<option value="">-- Chọn phụ huynh --</option>';
+                state.parents.forEach(p => {
+                    const o = document.createElement('option'); o.value = p.id; o.textContent = `${p.id} • ${p.name}`; psel.appendChild(o);
+                });
+                if (data?.parent_id) psel.value = data.parent_id;
+            }
+
+            // populate stops dropdowns
+            const pickup = document.getElementById('st-pickup-stop');
+            const dropoff = document.getElementById('st-dropoff-stop');
+            [pickup, dropoff].forEach(sel => {
+                if (!sel) return;
+                sel.innerHTML = '<option value="">-- Chọn trạm --</option>';
+                state.stopsManaged.forEach(s => {
+                    const o = document.createElement('option'); o.value = s.id; o.textContent = `${s.id} • ${s.name}`; sel.appendChild(o);
+                });
+            });
+            if (data?.pickup_stop_id) document.getElementById('st-pickup-stop').value = data.pickup_stop_id;
+            if (data?.dropoff_stop_id) document.getElementById('st-dropoff-stop').value = data.dropoff_stop_id;
+        } else if (type === 'bus') {
+            const busCard = document.getElementById('bus-form-card');
+            if (busCard) busCard.classList.remove('hidden');
             document.getElementById('bus-form-title').textContent = data ? 'Sửa Xe buýt' : 'Thêm Xe buýt';
             document.getElementById('bus-id').value = data?.id || '';
             document.getElementById('bus-plate').value = data?.plate || '';
             document.getElementById('bus-run').value = data?.run || '';
             document.getElementById('bus-status').value = data?.status === 'maintenance' ? 'maintenance' : 'active';
-            driverFormCard.classList.add('hidden');
-            parentFormCard.classList.add('hidden');
-            const busCard = document.getElementById('bus-form-card'); if (busCard) busCard.classList.remove('hidden');
-        }
-        if (type === 'route') {
-            // show route form and hide others
+        } else if (type === 'route') {
             const routeCard = document.getElementById('route-form-card');
             if (!routeCard) return;
             routeCard.classList.remove('hidden');
-            driverFormCard.classList.add('hidden');
-            parentFormCard.classList.add('hidden');
-            const busCard = document.getElementById('bus-form-card'); if (busCard) busCard.classList.add('hidden');
             document.getElementById('route-form-title').textContent = data ? 'Sửa Tuyến' : 'Thêm Tuyến';
             document.getElementById('route-id').value = data?.id || '';
             document.getElementById('route-name-input').value = data?.name || '';
             document.getElementById('route-description').value = data?.description || '';
             document.getElementById('route-duration').value = data?.duration || '';
+        } else if (type === 'stop') {
+            const stopCard = document.getElementById('stop-form-card');
+            if (!stopCard) return;
+            stopCard.classList.remove('hidden');
+            document.getElementById('stop-form-title').textContent = data ? 'Sửa Trạm' : 'Thêm Trạm';
+            document.getElementById('stop-id').value = data?.id || '';
+            document.getElementById('stop-route-id').value = data?.route_id || '';
+            document.getElementById('stop-name').value = data?.name || '';
+            document.getElementById('stop-sequence').value = data?.sequence_order || '';
+            document.getElementById('stop-latitude').value = data?.latitude || '';
+            document.getElementById('stop-longitude').value = data?.longitude || '';
+            // Initialize map after a short delay to allow DOM rendering
+            setTimeout(() => {
+                window.initializeStopMap(data);
+            }, 100);
         }
     }
 
@@ -672,6 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formModal.classList.add('hidden');
         driverFormCard.classList.add('hidden');
         parentFormCard.classList.add('hidden');
+        const studentFormCard = document.getElementById('student-form-card'); if (studentFormCard) studentFormCard.classList.add('hidden');
     }
 
     // ===== Validation helpers =====
@@ -686,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearFormErrors() {
-        ['dr-name','dr-phone','dr-email','pa-name','pa-student-name','pa-phone','pa-cccd','pa-email','bus-plate','bus-run','route-name-input','route-description','route-duration'].forEach(id => {
+        ['dr-name','dr-phone','dr-email','pa-name','pa-student-name','pa-phone','pa-cccd','pa-email','bus-plate','bus-run','route-name-input','route-description','route-duration','stop-name','stop-route-id','stop-sequence','stop-latitude','stop-longitude'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.remove('invalid');
             const err = document.getElementById(id + '-error');
@@ -746,11 +914,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return valid;
     }
 
+    function validateStopForm(){
+        clearFormErrors();
+        const name = document.getElementById('stop-name')?.value.trim() || '';
+        const routeId = document.getElementById('stop-route-id')?.value.trim() || '';
+        const sequence = document.getElementById('stop-sequence')?.value.trim() || '';
+        const latitude = document.getElementById('stop-latitude')?.value.trim() || '';
+        const longitude = document.getElementById('stop-longitude')?.value.trim() || '';
+        let valid = true;
+        if (name.length < 2) { setError('stop-name','Tên trạm phải có ít nhất 2 ký tự'); valid = false; }
+        if (!routeId) { setError('stop-route-id','Vui lòng chọn tuyến'); valid = false; }
+        if (!sequence || !/^[0-9]+$/.test(sequence)) { setError('stop-sequence','Thứ tự dừng phải là số dương'); valid = false; }
+        if (!latitude) { setError('stop-latitude','Vui lòng chọn vị trí trên bản đồ (latitude)'); valid = false; }
+        if (!longitude) { setError('stop-longitude','Vui lòng chọn vị trí trên bản đồ (longitude)'); valid = false; }
+        return valid;
+    }
+
+    function validateStudentForm(){
+        clearFormErrors();
+        const name = document.getElementById('st-name')?.value.trim() || '';
+        const parentId = document.getElementById('st-parent-id')?.value || '';
+        let valid = true;
+        if (name.length < 1) { setError('st-name','Vui lòng nhập tên học sinh'); valid = false; }
+        if (!parentId) { setError('st-parent-id','Vui lòng chọn phụ huynh'); valid = false; }
+        return valid;
+    }
+
     // Clear errors as user types
     ['dr-name','dr-phone','dr-email','pa-name','pa-student-name','pa-phone','pa-cccd','pa-email'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', () => setError(id, ''));
     });
+    const elStName = document.getElementById('st-name'); if (elStName) elStName.addEventListener('input', () => setError('st-name',''));
 
     // Click outside to close
     if (formModal) {
@@ -818,6 +1013,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Student save/cancel
+    const stSave = document.getElementById('st-save');
+    if (stSave) stSave.addEventListener('click', async () => {
+        if (!validateStudentForm()) return;
+        const id = document.getElementById('st-id')?.value || null;
+        const payload = {
+            name: document.getElementById('st-name')?.value.trim() || '',
+            parent_id: document.getElementById('st-parent-id')?.value || null,
+            pickup_stop_id: document.getElementById('st-pickup-stop')?.value || null,
+            dropoff_stop_id: document.getElementById('st-dropoff-stop')?.value || null
+        };
+        const result = await saveData('students', payload, id || null);
+        if (result) {
+            closeFormModal();
+            await renderStudents();
+            showMessage('Lưu học sinh thành công');
+        }
+    });
+    const stCancel = document.getElementById('st-cancel'); if (stCancel) stCancel.addEventListener('click', closeFormModal);
+
     // Bus save/cancel
     const busSave = document.getElementById('bus-save');
     if (busSave) busSave.addEventListener('click', async () => {
@@ -854,6 +1069,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     const routeCancel = document.getElementById('route-cancel'); if (routeCancel) routeCancel.addEventListener('click', closeFormModal);
+
+    // Stop save/cancel
+    const stopSave = document.getElementById('stop-save');
+    if (stopSave) stopSave.addEventListener('click', async () => {
+        if (!validateStopForm()) return;
+        const id = document.getElementById('stop-id')?.value || null;
+        const payload = {
+            route_id: document.getElementById('stop-route-id')?.value.trim() || '',
+            name: document.getElementById('stop-name')?.value.trim() || '',
+            latitude: parseFloat(document.getElementById('stop-latitude')?.value || 0),
+            longitude: parseFloat(document.getElementById('stop-longitude')?.value || 0),
+            sequence_order: parseInt(document.getElementById('stop-sequence')?.value || 0)
+        };
+        const result = await saveData('stops', payload, id || null);
+        if (result) {
+            closeFormModal();
+            await renderStopsManaged();
+            showMessage('Lưu trạm thành công');
+        }
+    });
+    const stopCancel = document.getElementById('stop-cancel'); if (stopCancel) stopCancel.addEventListener('click', closeFormModal);
 
     // Cancel buttons
     const drCancel = document.getElementById('dr-cancel'); if (drCancel) drCancel.addEventListener('click', closeFormModal);
@@ -927,12 +1163,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ===== Init =====
     async function init() {
+        // Leaflet Map initialization cho Stop Form
+        window.initializeStopMap = function(data = null) {
+            const mapContainer = document.getElementById('stop-map');
+            if (!mapContainer) return;
+
+            // Default center (TP.HCM - Saigon University area)
+            const defaultCenter = [10.7633, 106.6820];
+            const selectedLat = data?.latitude ? parseFloat(data.latitude) : defaultCenter[0];
+            const selectedLng = data?.longitude ? parseFloat(data.longitude) : defaultCenter[1];
+
+            // Create Leaflet map
+            const map = L.map('stop-map', { scrollWheelZoom: true }).setView([selectedLat, selectedLng], 14);
+
+            // Add tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            let marker = null;
+
+            // Create marker if data exists
+            if (data?.latitude && data?.longitude) {
+                marker = L.marker([selectedLat, selectedLng], {
+                    title: data.name || 'Vị trí trạm'
+                }).addTo(map);
+            }
+
+            // Click on map to select location
+            map.on('click', (event) => {
+                const lat = event.latlng.lat;
+                const lng = event.latlng.lng;
+
+                // Update input fields
+                document.getElementById('stop-latitude').value = lat.toFixed(7);
+                document.getElementById('stop-longitude').value = lng.toFixed(7);
+
+                // Remove old marker and create new one
+                if (marker) map.removeLayer(marker);
+                marker = L.marker([lat, lng], {
+                    title: 'Vị trí được chọn'
+                }).addTo(map);
+
+                // Center map on selected point
+                map.setView([lat, lng], 14);
+            });
+
+            // Store map in window for cleanup
+            window.stopFormMap = map;
+        };
+
         // Tải lại các hàm render sau khi thêm xóa
         renderBuses(); renderMapItems(); renderActivity(); renderInbox(); 
         await renderParents(); 
         await renderDrivers(); 
         await renderBusesManaged();
         await renderRoutesManaged();
+        await renderStopsManaged();
+        await renderStudents();
         // Provide static demo routes centered near Saigon University (ĐH Sài Gòn)
         const demoRoutes = [
             {
@@ -987,6 +1276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Gán sự kiện cho nút Thêm (mở popup chung)
         const btnAddParent = document.getElementById('btn-add-parent');
         if (btnAddParent) btnAddParent.addEventListener('click', () => openFormModal('parent'));
+        const btnAddStudent = document.getElementById('btn-add-student');
+        if (btnAddStudent) btnAddStudent.addEventListener('click', () => openFormModal('student'));
         const btnAddDriver = document.getElementById('btn-add-driver');
         if (btnAddDriver) btnAddDriver.addEventListener('click', () => openFormModal('driver'));
         // Hỗ trợ id khác (trang users view có id 'add-driver')
@@ -997,6 +1288,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnAddBus) btnAddBus.addEventListener('click', () => openFormModal('bus'));
         const btnAddRoute = document.getElementById('btn-add-route');
         if (btnAddRoute) btnAddRoute.addEventListener('click', () => openFormModal('route'));
+        // Thêm nút cho Stops
+        const btnAddStop = document.getElementById('btn-add-stop');
+        if (btnAddStop) btnAddStop.addEventListener('click', () => openFormModal('stop'));
 
         // Sự kiện tìm kiếm phụ huynh
         const searchParent = document.getElementById('search-parent');
@@ -1005,6 +1299,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderParents(e.target.value);
             });
         }
+        const searchStudent = document.getElementById('search-student');
+        if (searchStudent) searchStudent.addEventListener('input', (e) => renderStudents(e.target.value));
         // Sự kiện tìm kiếm tài xế
         const searchDriver = document.getElementById('search-driver');
         if (searchDriver) {
@@ -1016,6 +1312,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchBus = document.getElementById('search-bus');
         if (searchBus) searchBus.addEventListener('input', (e) => renderBusesManaged(e.target.value));
 
+        // Sự kiện tìm kiếm trạm
+        const searchStop = document.getElementById('search-stop');
+        if (searchStop) searchStop.addEventListener('input', (e) => renderStopsManaged(e.target.value));
+
         // ... (phần code init còn lại giữ nguyên) ...
 
         const fr = document.getElementById('filter-route'); const rr = document.getElementById('sched-route');
@@ -1023,6 +1323,17 @@ document.addEventListener('DOMContentLoaded', () => {
             state.routes.forEach(r => {
                 const o = document.createElement('option'); o.value = r.name; o.textContent = r.name;
                 fr.appendChild(o); rr.appendChild(o.cloneNode(true));
+            });
+        }
+
+        // Populate stop-route-id dropdown với dữ liệu routes
+        const stopRouteSelect = document.getElementById('stop-route-id');
+        if (stopRouteSelect) {
+            state.routesManaged.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = `${r.id} • ${r.name}`;
+                stopRouteSelect.appendChild(opt);
             });
         }
 
