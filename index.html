@@ -16,10 +16,12 @@
   <!-- === QUẢN LÝ === -->          
   <li class="manager-only" data-page="m-drivers">👨‍✈️ <span>Quản lý Tài xế</span></li> 
   <li class="manager-only" data-page="m-parents">👨‍👩‍👧 <span>Quản lý Phụ huynh</span></li>
+  <li class="manager-only" data-page="m-students">🎒 <span>Quản lý Học sinh</span></li>
   <li class="manager-only" data-page="m-dashboard">📊 <span>Tổng quan hệ thống</span></li>
   <li class="manager-only" data-page="m-schedules">🗓️ <span>Lịch trình xe</span></li>
   <li class="manager-only" data-page="m-routes">🧭 <span>Tuyến đường</span></li>
   <li class="manager-only" data-page="m-buses">🚌 <span>Quản lý Xe buýt</span></li>
+  <li class="manager-only" data-page="m-stops">🛑 <span>Quản lý Trạm dừng</span></li>
   <li class="manager-only" data-page="m-tracking">📍 <span>Theo dõi vị trí xe</span></li>
   <li class="manager-only" data-page="m-messages">💬 <span>Tin nhn</span></li>
 
@@ -97,9 +99,6 @@
 
                   <!-- Load Leaflet JS (we will use plain Leaflet here, no React) -->
                   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-                  <!-- Initialize a plain Leaflet map inside #tracking-map when requested -->
-                  <script>
                     (function(){
                       // Center near Saigon University (ĐH Sài Gòn) — demo coordinates
                       const defaultCenter = [10.7633, 106.6820];
@@ -342,6 +341,32 @@
                     </div>
                   </div>
                 </div>
+                <div id="m-students-view" class="hidden">
+                  <h3>Quản lý Học sinh</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+                          <div class="muted">Danh sách Học sinh</div>
+                          <input id="search-student" placeholder="Tìm theo tên hoặc mã" style="max-width:180px" />
+                          <button class="btn" id="btn-add-student">Thêm Học sinh</button>
+                        </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Mã học sinh</th>
+                            <th>Tên</th>
+                            <th>Phụ huynh</th>
+                            <th>Pick-up</th>
+                            <th>Drop-off</th>
+                            <th>Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody id="students-table">
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
                 <div id="m-drivers-view" class="hidden">
                   <h3>Quản lý Tài xế</h3>
                   <div style="display:flex;gap:12px">
@@ -389,6 +414,29 @@
                           </tr>
                         </thead>
                         <tbody id="buses-table"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="m-stops-view" class="hidden">
+                  <h3>Quản lý Trạm dừng</h3>
+                  <div style="display:flex;gap:12px">
+                    <div style="flex:1">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+                        <div class="muted">Danh sách Trạm dừng</div>
+                        <input id="search-stop" placeholder="Tìm theo tên hoặc mã" style="max-width:180px" />
+                        <button class="btn" id="btn-add-stop">Thêm Trạm</button>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tên trạm</th>
+                            <th>Mã trạm</th>
+                            <th>Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody id="stops-table"></tbody>
                       </table>
                     </div>
                   </div>
@@ -472,6 +520,37 @@
         </div>
       </div>
 
+      <!-- Student Form -->
+      <div id="student-form-card" class="hidden">
+        <h3 id="student-form-title">Thêm / Sửa Học sinh</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="st-id" placeholder="Mã học sinh (tự động)" disabled />
+          <input id="st-name" placeholder="Tên học sinh" />
+          <div class="input-error" id="st-name-error"></div>
+
+          <label style="font-weight:600;margin-top:8px">Phụ huynh</label>
+          <select id="st-parent-id">
+            <option value="">-- Chọn phụ huynh --</option>
+          </select>
+          <div class="input-error" id="st-parent-id-error"></div>
+
+          <label style="font-weight:600;margin-top:8px">Pick-up (Trạm đón)</label>
+          <select id="st-pickup-stop">
+            <option value="">-- Chọn trạm --</option>
+          </select>
+
+          <label style="font-weight:600;margin-top:8px">Drop-off (Trạm trả)</label>
+          <select id="st-dropoff-stop">
+            <option value="">-- Chọn trạm --</option>
+          </select>
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="st-save">Lưu</button>
+            <button class="btn ghost" id="st-cancel">Hủy</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Bus Form -->
       <div id="bus-form-card" class="hidden">
         <h3 id="bus-form-title">Thêm / Sửa Xe buýt</h3>
@@ -510,9 +589,55 @@
         </div>
       </div>
 
+      <!-- Stop Form -->
+      <div id="stop-form-card" class="hidden">
+        <h3 id="stop-form-title">Thêm / Sửa Trạm dừng</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:80vh;overflow-y:auto">
+          <input id="stop-id" placeholder="Mã trạm (tự động)" disabled />
+          
+          <label style="font-weight:600;margin-top:8px">Tuyến</label>
+          <select id="stop-route-id">
+            <option value="">-- Chọn tuyến --</option>
+          </select>
+          <div class="input-error" id="stop-route-id-error"></div>
+
+          <label style="font-weight:600;margin-top:8px">Tên trạm</label>
+          <input id="stop-name" placeholder="Tên trạm" />
+          <div class="input-error" id="stop-name-error"></div>
+
+          <label style="font-weight:600;margin-top:8px">Thứ tự dừng</label>
+          <input id="stop-sequence" type="number" placeholder="Thứ tự dừng trên tuyến" min="1" />
+          <div class="input-error" id="stop-sequence-error"></div>
+
+          <label style="font-weight:600;margin-top:8px">Chọn vị trí trên bản đồ</label>
+          <div id="stop-map" style="height:400px;border:2px solid #ddd;border-radius:6px;margin-bottom:8px;cursor:crosshair;background:#f0f0f0;flex-shrink:0"></div>
+          <div style="font-size:12px;color:#666">Ấn vào bản đồ để chọn vị trí</div>
+
+          <label style="font-weight:600;margin-top:8px">Tọa độ</label>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1">
+              <label style="font-size:12px;color:#666">Latitude</label>
+              <input id="stop-latitude" type="number" placeholder="Latitude" step="0.0000001" readonly style="background:#f9f9f9" />
+              <div class="input-error" id="stop-latitude-error"></div>
+            </div>
+            <div style="flex:1">
+              <label style="font-size:12px;color:#666">Longitude</label>
+              <input id="stop-longitude" type="number" placeholder="Longitude" step="0.0000001" readonly style="background:#f9f9f9" />
+              <div class="input-error" id="stop-longitude-error"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="stop-save">Lưu</button>
+            <button class="btn ghost" id="stop-cancel">Hủy</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <script src="app.js"></script>
 </body>
 </html>
+
