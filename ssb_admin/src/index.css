@@ -1,0 +1,388 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Bảng màu hiện đại */
+  --primary: #4361ee;       /* Xanh dương tươi */
+  --primary-dark: #3a0ca3;
+  --secondary: #4cc9f0;
+  --sidebar-bg: #0f172a;    /* Màu xanh đen đậm */
+  --bg-color: #f8f9fa;      /* Màu nền sáng */
+  --card-bg: #ffffff;
+  --text-main: #334155;
+  --text-light: #94a3b8;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* --- ANIMATIONS (Hiệu ứng xuất hiện) --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* --- SIDEBAR (MENU TRÁI) --- */
+.sidebar {
+  width: 260px;
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #1e293b 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 25px 20px;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.brand {
+  font-size: 24px;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: -0.5px;
+  padding-left: 10px;
+}
+
+.menu-item {
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Hiệu ứng mượt */
+  color: var(--text-light);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+}
+
+/* Hiệu ứng Nhấp Nhả cho Menu */
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  transform: translateX(5px); /* Di chuyển nhẹ sang phải */
+  padding-left: 25px; /* Tăng padding tạo cảm giác trượt */
+}
+
+.menu-item.active {
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.4);
+  font-weight: 600;
+}
+
+.logout-btn {
+  margin-top: auto;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: var(--danger);
+  color: white;
+  transform: scale(1.02);
+}
+
+/* --- MAIN CONTENT --- */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.top-bar {
+  padding: 20px 40px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px); /* Hiệu ứng kính mờ */
+  border-bottom: 1px solid white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.top-bar h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--sidebar-bg);
+  margin: 0;
+}
+
+/* --- STATS CARDS (Thẻ thống kê) --- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 25px;
+  padding: 30px 40px;
+}
+
+.stat-card {
+  background: white;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+  cursor: default;
+}
+
+/* Hiệu ứng nổi lên khi hover vào thẻ */
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+.stat-number { font-size: 32px; font-weight: 800; color: var(--sidebar-bg); line-height: 1; }
+.stat-label { color: var(--text-light); font-size: 14px; margin-top: 5px; font-weight: 500; }
+
+/* --- DASHBOARD VIEW --- */
+.dashboard-view {
+  display: flex;
+  flex: 1;
+  padding: 0 40px 40px 40px;
+  gap: 25px;
+  overflow: hidden;
+}
+
+.list-panel, .map-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.3s;
+}
+
+.list-panel { width: 35%; }
+.map-panel { flex: 1; position: relative; }
+
+.list-panel:hover, .map-panel:hover {
+  box-shadow: var(--shadow-lg); /* Đổ bóng đậm hơn khi hover */
+}
+
+/* --- TABLE STYLES --- */
+.table-container { overflow-y: auto; flex: 1; }
+table { width: 100%; border-collapse: collapse; }
+
+th { 
+  background: #f8fafc; 
+  padding: 18px 20px; 
+  text-align: left; 
+  color: var(--text-light); 
+  font-size: 12px; 
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky; top: 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+td { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: var(--text-main); }
+
+tr { transition: background-color 0.2s; }
+tr:hover { background-color: #f8fafc; cursor: pointer; }
+
+/* Dòng được chọn */
+tr.selected { 
+  background-color: #eff6ff; 
+  border-left: 4px solid var(--primary);
+}
+tr.selected td {
+  color: var(--primary-dark);
+  font-weight: 500;
+}
+
+/* Badges (Nhãn trạng thái) */
+.badge {
+  padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+.badge.running { background: #dcfce7; color: #166534; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+.badge.pending { background: #fef3c7; color: #92400e; }
+
+/* Buttons chung */
+button {
+  transition: transform 0.1s, box-shadow 0.2s, background-color 0.2s;
+}
+button:active { transform: scale(0.95); } /* Hiệu ứng lún xuống khi bấm */
+
+/* --- LOGIN SCREEN --- */
+.login-container {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-box {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 50px 40px;
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  width: 420px;
+  animation: fadeIn 0.8s ease-out;
+  text-align: center;
+}
+
+.login-box h2 { font-size: 28px; margin-bottom: 10px; color: var(--primary-dark); }
+.login-box p { color: #64748b; margin-bottom: 30px; }
+
+.login-box input {
+  transition: all 0.3s;
+  border: 2px solid #e2e8f0;
+}
+.login-box input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1);
+  outline: none;
+}
+
+.login-box button {
+  background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+  margin-top: 20px;
+  padding: 14px;
+  font-size: 16px;
+  box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+}
+.login-box button:hover {
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.5);
+  transform: translateY(-2px);
+}
+/* Thanh cuộn ẩn cho giống điện thoại */
+.mobile-content::-webkit-scrollbar { width: 4px; }
+.mobile-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+/* Header Mobile */
+.app-header {
+  background: linear-gradient(to right, #2563eb, #3b82f6);
+  padding: 20px;
+  color: white;
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+  position: relative;
+  z-index: 10;
+}
+
+/* Card chuyến đi */
+.trip-card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 1px solid #f1f5f9;
+  transition: transform 0.1s;
+}
+.trip-card:active { transform: scale(0.98); }
+
+/* Nút bấm to (Big Button) */
+.btn-action-lg {
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+.btn-start { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+.btn-stop { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); color: white; animation: pulse 2s infinite; }
+
+/* Danh sách học sinh */
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.student-item:last-child { border-bottom: none; }
+
+.student-avatar {
+  width: 40px; height: 40px;
+  background: #e0f2fe; color: #0369a1;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; font-size: 14px;
+  margin-right: 12px;
+}
+
+/* Nút điểm danh nhỏ gọn */
+.check-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  background: white;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  transition: all 0.2s;
+}
+.check-btn.active { border-color: transparent; color: white; transform: scale(1.1); }
+.check-btn.pick { background: #10b981; } /* Xanh lá */
+.check-btn.drop { background: #3b82f6; } /* Xanh dương */
+
+/* Bottom Sheet (Cho Phụ huynh) */
+.bottom-sheet {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: white;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 -5px 25px rgba(0,0,0,0.1);
+  z-index: 100;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
